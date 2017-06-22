@@ -1,108 +1,54 @@
-const { resolve } = require('path')
-const webpack = require('webpack')
-const HtmlWebpackPlugin = require('html-webpack-plugin')
-const pkgInfo = require('./package.json')
-const url = require('url')
+const path = require('path');
+const webpack = require('webpack');
 
-module.exports = (options = {}) => {
-    const config = require('./config/' + (process.env.npm_config_config || options.config || 'default'))
-
-    return {
-        entry: {
-            vendor: './src/vendor',
-            index: './src/index'
-        },
-
-        output: {
-            path: resolve(__dirname, 'dist'),
-            publicPath: config.publicPath,
-            filename: options.dev ? '[name].js' : '[name].[chunkhash].js',
-            chunkFilename: '[id].[chunkhash].js',
-        },
-
-        module: {
-            rules: [
-                {
-                    test: /\.js$/,
-                    exclude: /node_modules/,
-                    use: ['babel-loader']
+module.exports = {
+    devtool: 'cheap-module-eval-source-map',
+    entry: [
+        // 'webpack-hot-middleware/client?path=/__webpack_hmr&timeout=10000&reload=true',
+        'babel-polyfill',
+        path.join(__dirname, 'src/index'),
+    ],
+    output: {
+        path: path.join(__dirname, 'public'),
+        filename: 'bundle.js',
+        publicPath: '/',
+    },
+    module: {
+        loaders: [
+            // take all less files, compile them, and bundle them in with our js bundle
+            {
+                test: /\.less$/,
+                loader: 'style!css!autoprefixer?browsers=last 2 version!less'
+            },{
+                test: /\.json$/,
+                loader: "json",
+            },{
+                test: /\.js$/,
+                exclude: /node_modules/,
+                loader: 'babel-loader',
+                query: {
+                    presets: ['es2015',"stage-2", 'react'],
+                    plugins: [['react-transform', {
+                        transforms: [{
+                            transform: 'react-transform-hmr',
+                            imports: ['react'],
+                            // this is important for Webpack HMR:
+                            locals: ['module']
+                        }],
+                    }]],
                 },
-                {
-                    test: /\.html$/,
-                    use: [
-                        {
-                            loader: 'html-loader',
-                            options: {
-                                root: resolve(__dirname, 'src'),
-                                attrs: ['img:src', 'link:href']
-                            }
-                        }
-                    ]
-                },
-                {
-                    test: /\.css$/,
-                    use: ['style-loader', 'css-loader', 'postcss-loader']
-                },
-                {
-                    test: /favicon\.ico$/,
-                    use: [
-                        {
-                            loader: 'file-loader',
-                            options: {
-                                name: '[name].[ext]?[hash]'
-                            }
-                        }
-                    ]
-                },
-                {
-                    test: /\.(png|jpg|jpeg|gif|eot|ttf|woff|woff2|svg|svgz)(\?.+)?$/,
-                    exclude: /favicon\.ico$/,
-                    use: [
-                        {
-                            loader: 'url-loader',
-                            options: {
-                                limit: 10000
-                            }
-                        }
-                    ]
-                }
-            ]
-        },
-
-        plugins: [
-            new HtmlWebpackPlugin({
-                template: 'src/index.html'
-            }),
-
-            new webpack.optimize.CommonsChunkPlugin({
-                names: ['vendor', 'manifest']
-            }),
-
-            new webpack.DefinePlugin({
-                DEBUG: Boolean(options.dev),
-                VERSION: JSON.stringify(pkgInfo.version),
-                CONFIG: JSON.stringify(config.runtimeConfig)
-            })
+            },
         ],
-
-        resolve: {
-            alias: {
-                '~': resolve(__dirname, 'src')
-            }
-        },
-
-        devServer: config.devServer ? {
-            host: '0.0.0.0',
-            disableHostCheck: true,
-            port: config.devServer.port,
-            proxy: config.devServer.proxy,
-            historyApiFallback: {
-                index: '/assets/'
-            }
-        } : undefined,
-
-        performance: {
-            hints: options.dev ? false : 'warning'
-        }
-    }
-}
+    },
+    plugins: [
+        new webpack.DefinePlugin({
+            'process.env': {
+                NODE_ENV: JSON.stringify('__DEV__'),
+                PLATFORM_ENV: JSON.stringify('__WEB__'),
+            },
+        }),
+        new webpack.optimize.OccurenceOrderPlugin(),
+        // new webpack.HotModuleReplacementPlugin(),
+        new webpack.NoErrorsPlugin(),
+    ],
+};
